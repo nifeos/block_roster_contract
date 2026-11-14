@@ -3,7 +3,7 @@
 Dates are UTC. One line per release, what changed and why, so a reader of the diff has the
 sentence beside it.
 
-## Unreleased
+## 0.1.0-pre.2
 
 - `Roster::read` returns `Result<Roster, ReadError>` instead of an `Option`, so a reader can tell a
   short mapping, a page of another kind and a broken writer apart.
