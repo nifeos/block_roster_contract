@@ -130,9 +130,25 @@ cargo kani --harness verification::write_is_total_on_any_page_length --exact   #
 git checkout -- src
 ```
 
-The harness name is the part of the patch's file name after `verification.`. The run ends with
-`Complete - 0 successfully verified harnesses, 1 failures, 1 total.`, and the failed check names
-the assertion that the patch breaks. `git checkout -- src` reverts the patch.
+The harness name is the part of the patch's file name after `verification.`. Every patch turns its
+harness red: the run ends with `VERIFICATION:- FAILED` and
+`Complete - 0 successfully verified harnesses, 1 failures, 1 total.`, and `git checkout -- src`
+reverts the patch. What the failed check says differs by patch, because Kani reports a failed
+`assert_eq!`, or an index out of bounds, as a placeholder message from inside the standard library:
+
+- `verification.capacity_of_fits_the_page_for_every_length.patch` fails on a check in this crate,
+  `assertion failed: HEADER_BYTES + capacity * ENTRY_BYTES <= len`, which names `src/lib.rs`. Kani
+  also lists `attempt to add with overflow` for the same harness.
+- The other four patches fail on a message that begins `This is a placeholder message`, and the
+  `File:` line below it names the standard library, not this crate. The `read_is_total_on_a_whole_page_with_any_header` and `write_is_total_on_any_page_length`
+  patches fail in `core::slice::index::slice_index_fail`, an out-of-bounds slice index. The
+  `write_then_read_returns_the_same_devices_in_order` patch fails in
+  `core::panicking::assert_failed_inner`, the `assert_eq!` in the harness. The
+  `read_is_total_and_every_counted_entry_is_gettable` patch lists both of those.
+
+Each patch's header says which assertion or index it breaks. A reader compares the kind of
+failure (an index out of bounds, or a failed `assert_eq!`) with that header, since the standard
+library's file and line say nothing about this crate.
 
 ## BUGS
 
