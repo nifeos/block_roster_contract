@@ -89,8 +89,8 @@ cargo build --lib --target x86_64-unknown-none   # also aarch64-unknown-none-sof
 ```
 
 Run `rustup target add` once, before the first bare-metal build. Without it, that build stops with
-`can't find crate for core`. The tests run on the host and cover 16 unit tests and 2 documentation
-tests, one of which is the example above.
+`can't find crate for core`. `cargo test` runs on the host and covers the unit tests and the
+documentation tests, one of which is the example above.
 
 ### Running the proofs
 
