@@ -156,6 +156,9 @@ library's file and line say nothing about this crate.
   longer page rests on `capacity_of`, which the proofs cover at every length, and on host tests.
 - The 4096-byte `read` harness holds the entries at zero, since no entry's contents decide an index.
   The 40-byte harness covers arbitrary entry contents.
+- The minimum Rust version is 1.88 and not 1.85. A change to 1.85 was declined: the reader slices
+  entries with `slice::as_chunks`, stable since 1.88, and 1.85 would mean going back to
+  `chunks_exact` and the conversion paths that were removed on purpose.
 
 ## Minimum Rust version
 
