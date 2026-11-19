@@ -19,6 +19,6 @@ diff --git a/src/lib.rs b/src/lib.rs
 -    if page.len() < HEADER_BYTES {
 -        return Err(TooManyDevices);
 -    }
-     let capacity = u32::try_from(capacity_of(page.len())).unwrap_or(u32::MAX);
+     let capacity = u32::try_from(entry_capacity(page.len())).unwrap_or(u32::MAX);
      let Ok(count) = u32::try_from(devices.len()) else {
          return Err(TooManyDevices);

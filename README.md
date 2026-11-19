@@ -75,7 +75,7 @@ assert_eq!(roster.count_by_transport(TRANSPORT_VIRTIO_PCI), 1);
 
 Five Kani harnesses in `src/lib.rs` prove five things. `Roster::read` is total on any bytes, up to
 three entries (40 bytes). `read` is also total on a whole 4096-byte page with any header, and every
-entry it counts there can be fetched. `capacity_of` never claims more room than a page of any length
+entry it counts there can be fetched. `entry_capacity` never claims more room than a page of any length
 has. `write` is total on any page length up to 40 bytes and refuses a page too short for its header.
 `write` then `read` returns the same devices in order. Install Kani and run them as "Building and testing" below describes.
 
@@ -136,7 +136,7 @@ harness red: the run ends with `VERIFICATION:- FAILED` and
 reverts the patch. What the failed check says differs by patch, because Kani reports a failed
 `assert_eq!`, or an index out of bounds, as a placeholder message from inside the standard library:
 
-- `verification.capacity_of_fits_the_page_for_every_length.patch` fails on a check in this crate,
+- `verification.entry_capacity_fits_the_page_for_every_length.patch` fails on a check in this crate,
   `assertion failed: HEADER_BYTES + capacity * ENTRY_BYTES <= len`, which names `src/lib.rs`. Kani
   also lists `attempt to add with overflow` for the same harness.
 - The other four patches fail on a message that begins `This is a placeholder message`, and the
@@ -153,7 +153,7 @@ library's file and line say nothing about this crate.
 ## BUGS
 
 - `write` is machine-checked on pages of up to three entries (40 bytes) only. Its indexing on a
-  longer page rests on `capacity_of`, which the proofs cover at every length, and on host tests.
+  longer page rests on `entry_capacity`, which the proofs cover at every length, and on host tests.
 - The 4096-byte `read` harness holds the entries at zero, since no entry's contents decide an index.
   The 40-byte harness covers arbitrary entry contents.
 - The minimum Rust version is 1.88 and not 1.85. The maintainers declined a change to 1.85: the

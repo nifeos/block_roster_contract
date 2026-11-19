@@ -16,7 +16,7 @@ diff --git a/src/lib.rs b/src/lib.rs
          }
          let word =
              |at: usize| u32::from_le_bytes([page[at], page[at + 1], page[at + 2], page[at + 3]]);
--        let room = capacity_of(page.len());
+-        let room = entry_capacity(page.len());
 +        let room = word(12) as usize;
          let count = word(8) as usize;
          let capacity = word(12) as usize;
