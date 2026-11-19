@@ -5,7 +5,7 @@
 
 #![no_main]
 
-use block_roster_contract::{Device, ENTRY_BYTES, HEADER_BYTES, Roster, capacity_of, write};
+use block_roster_contract::{Device, ENTRY_BYTES, HEADER_BYTES, Roster, entry_capacity, write};
 use libfuzzer_sys::fuzz_target;
 
 fuzz_target!(|data: &[u8]| {
@@ -25,12 +25,12 @@ fuzz_target!(|data: &[u8]| {
     let mut page = vec![0xa5u8; length];
     match write(&mut page, &devices) {
         Ok(()) => {
-            assert!(devices.len() <= capacity_of(length));
+            assert!(devices.len() <= entry_capacity(length));
             let roster = Roster::read(&page).expect("a page that was written must read");
             assert_eq!(roster.len(), devices.len());
             assert!(roster.devices().eq(devices.iter().copied()));
         }
         // A page shorter than the header has room for no device, not even for a count of zero.
-        Err(_) => assert!(length < HEADER_BYTES || devices.len() > capacity_of(length)),
+        Err(_) => assert!(length < HEADER_BYTES || devices.len() > entry_capacity(length)),
     }
 });

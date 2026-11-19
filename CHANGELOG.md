@@ -3,6 +3,11 @@
 Dates are UTC. One line per release, what changed and why, so a reader of the diff has the
 sentence beside it.
 
+## Unreleased
+
+- `capacity_of(len)` is `entry_capacity(page_bytes)`, so the parameter carries its unit. The
+  proof and its falsification patch take the new name.
+
 ## 0.1.0-pre.2
 
 - `Roster::read` returns `Result<Roster, ReadError>` instead of an `Option`, so a reader can tell a

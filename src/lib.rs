@@ -129,12 +129,12 @@ impl Device {
     }
 }
 
-/// How many entries a page of `len` bytes can hold.
-pub const fn capacity_of(len: usize) -> usize {
-    if len < HEADER_BYTES {
+/// How many entries a page of `page_bytes` bytes can hold.
+pub const fn entry_capacity(page_bytes: usize) -> usize {
+    if page_bytes < HEADER_BYTES {
         0
     } else {
-        (len - HEADER_BYTES) / ENTRY_BYTES
+        (page_bytes - HEADER_BYTES) / ENTRY_BYTES
     }
 }
 
@@ -169,7 +169,7 @@ pub fn write(page: &mut [u8], devices: &[Device]) -> Result<(), TooManyDevices> 
     if page.len() < HEADER_BYTES {
         return Err(TooManyDevices);
     }
-    let capacity = u32::try_from(capacity_of(page.len())).unwrap_or(u32::MAX);
+    let capacity = u32::try_from(entry_capacity(page.len())).unwrap_or(u32::MAX);
     let Ok(count) = u32::try_from(devices.len()) else {
         return Err(TooManyDevices);
     };
@@ -269,7 +269,7 @@ impl<'a> Roster<'a> {
         }
         let word =
             |at: usize| u32::from_le_bytes([page[at], page[at + 1], page[at + 2], page[at + 3]]);
-        let room = capacity_of(page.len());
+        let room = entry_capacity(page.len());
         let count = word(8) as usize;
         let capacity = word(12) as usize;
         if count > room {
@@ -550,8 +550,8 @@ mod tests {
         let mut page = [0u8; HEADER_BYTES + ENTRY_BYTES]; // room for one
         assert_eq!(write(&mut page, &sample()), Err(TooManyDevices));
         assert_eq!(write(&mut page, &sample()[..1]), Ok(()));
-        assert_eq!(capacity_of(0), 0, "a page with no header holds nothing");
-        assert_eq!(capacity_of(HEADER_BYTES), 0);
+        assert_eq!(entry_capacity(0), 0, "a page with no header holds nothing");
+        assert_eq!(entry_capacity(HEADER_BYTES), 0);
     }
 
     /// A page shorter than the header holds no roster, not even an empty one, so `write` refuses it
@@ -563,7 +563,7 @@ mod tests {
         for len in 0..=HEADER_BYTES + 2 * ENTRY_BYTES {
             for count in 0..=2 {
                 let mut page = [0xA5u8; HEADER_BYTES + 2 * ENTRY_BYTES];
-                let fits = len >= HEADER_BYTES && count <= capacity_of(len);
+                let fits = len >= HEADER_BYTES && count <= entry_capacity(len);
                 let result = write(&mut page[..len], &devices[..count]);
                 assert_eq!(result.is_ok(), fits, "length {len}, {count} devices");
                 if fits {
@@ -659,7 +659,7 @@ mod tests {
         write(&mut page, &[]).unwrap();
         let roster = Roster::read(&page).expect("header-only is a valid roster");
         assert_eq!(roster.devices().count(), 0);
-        assert_eq!(capacity_of(HEADER_BYTES), 0);
+        assert_eq!(entry_capacity(HEADER_BYTES), 0);
         // One byte shorter really is short.
         assert_eq!(
             Roster::read(&page[..HEADER_BYTES - 1]).err(),
@@ -774,7 +774,7 @@ mod verification {
         kani::assume(len <= PAGE);
 
         let mut page = [0u8; PAGE];
-        let fits = len >= HEADER_BYTES && count <= capacity_of(len);
+        let fits = len >= HEADER_BYTES && count <= entry_capacity(len);
         assert_eq!(write(&mut page[..len], &devices[..count]).is_ok(), fits);
         if fits {
             let roster = Roster::read(&page[..len]).expect("a written page reads");
@@ -782,16 +782,16 @@ mod verification {
         }
     }
 
-    /// Falsification: replayable `falsifications/verification.capacity_of_fits_the_page_for_every_length.patch`
-    /// **`capacity_of` never claims more room than the page has**: for every page length that holds
-    /// the header, the header and `capacity_of(len)` entries fit in `len` bytes, and what is left
+    /// Falsification: replayable `falsifications/verification.entry_capacity_fits_the_page_for_every_length.patch`
+    /// **`entry_capacity` never claims more room than the page has**: for every page length that holds
+    /// the header, the header and `entry_capacity(len)` entries fit in `len` bytes, and what is left
     /// over is too short for one entry more. This is the arithmetic both `write` and `read` bound their indexing by, checked at
     /// every length rather than up to `PAGE`.
     #[kani::proof]
-    fn capacity_of_fits_the_page_for_every_length() {
+    fn entry_capacity_fits_the_page_for_every_length() {
         let len: usize = kani::any();
         kani::assume(len >= HEADER_BYTES);
-        let capacity = capacity_of(len);
+        let capacity = entry_capacity(len);
         assert!(HEADER_BYTES + capacity * ENTRY_BYTES <= len);
         assert!(len - HEADER_BYTES - capacity * ENTRY_BYTES < ENTRY_BYTES);
     }
@@ -809,7 +809,7 @@ mod verification {
         page[..HEADER_BYTES].copy_from_slice(&header);
 
         if let Ok(roster) = Roster::read(&page) {
-            assert!(roster.len() <= capacity_of(page.len()));
+            assert!(roster.len() <= entry_capacity(page.len()));
             assert_eq!(roster.devices().len(), roster.len());
             let index: usize = kani::any();
             kani::assume(index < roster.len());

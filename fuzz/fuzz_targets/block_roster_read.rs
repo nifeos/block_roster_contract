@@ -2,14 +2,14 @@
 
 #![no_main]
 
-use block_roster_contract::{Roster, capacity_of};
+use block_roster_contract::{Roster, entry_capacity};
 use libfuzzer_sys::fuzz_target;
 
 fuzz_target!(|page: &[u8]| {
     let Ok(roster) = Roster::read(page) else {
         return;
     };
-    assert!(roster.len() <= capacity_of(page.len()));
+    assert!(roster.len() <= entry_capacity(page.len()));
     assert_eq!(roster.is_empty(), roster.len() == 0);
 
     let devices = roster.devices();
