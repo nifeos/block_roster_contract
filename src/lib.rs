@@ -142,6 +142,9 @@ pub const fn entry_capacity(page_bytes: usize) -> usize {
 /// page cannot hold the header and `devices`: a page shorter than [`HEADER_BYTES`] holds no roster
 /// at all, not even an empty one. `write` never panics, whatever the lengths.
 ///
+/// Every byte past the last entry, to the end of `page`, is set to zero, so a reused buffer that
+/// held a longer list keeps none of its entries.
+///
 /// The count and capacity words are `u32`, so a page with room for more than `u32::MAX` entries
 /// records a capacity of `u32::MAX` and takes at most that many devices.
 ///
@@ -184,6 +187,7 @@ pub fn write(page: &mut [u8], devices: &[Device]) -> Result<(), TooManyDevices> 
         page[at..at + 4].copy_from_slice(&device.ordinal.to_le_bytes());
         page[at + 4..at + 8].copy_from_slice(&device.transport.to_le_bytes());
     }
+    page[HEADER_BYTES + devices.len() * ENTRY_BYTES..].fill(0);
     Ok(())
 }
 
@@ -586,6 +590,23 @@ mod tests {
         );
     }
 
+    /// A frame reused for a shorter list keeps none of the longer one: `write` clears every byte
+    /// past its last entry, so the old entries are gone from the page and not merely uncounted.
+    #[test]
+    fn a_shorter_list_written_over_a_longer_one_leaves_only_zeros_after_it() {
+        let mut page = [0xA5u8; HEADER_BYTES + 6 * ENTRY_BYTES];
+        assert_eq!(write(&mut page, &sample()), Ok(()));
+        assert_eq!(write(&mut page, &sample()[..1]), Ok(()));
+        let end = HEADER_BYTES + ENTRY_BYTES;
+        assert!(
+            page[end..].iter().all(|&byte| byte == 0),
+            "every byte past the last entry is zero"
+        );
+        let roster = Roster::read(&page).unwrap();
+        assert_eq!(roster.len(), 1);
+        assert_eq!(roster.get(0), Some(sample()[0]));
+    }
+
     #[test]
     fn transports_are_named_and_an_unknown_one_is_not_guessed() {
         assert_eq!(
@@ -711,10 +732,10 @@ mod verification {
 
     /// Falsification: replayable `falsifications/verification.write_then_read_returns_the_same_devices_in_order.patch`
     /// **A written roster reads back as written**: for any list of up to three devices, `write`
-    /// into a page that fits and then `read` returns the same devices in the same order, and no
-    /// more.
+    /// into a page that fits, whatever bytes it held before, and then `read` returns the same
+    /// devices in the same order, and no more. Every byte past the last entry is zero.
     #[kani::proof]
-    #[kani::unwind(9)]
+    #[kani::unwind(41)]
     fn write_then_read_returns_the_same_devices_in_order() {
         let devices: [Device; 3] = [
             Device {
@@ -733,7 +754,7 @@ mod verification {
         let count: usize = kani::any();
         kani::assume(count <= devices.len());
 
-        let mut page = [0u8; PAGE];
+        let mut page: [u8; PAGE] = kani::any();
         assert_eq!(write(&mut page, &devices[..count]), Ok(()));
 
         let roster = Roster::read(&page).expect("a written page reads");
@@ -744,6 +765,11 @@ mod verification {
             index += 1;
         }
         assert!(roster.get(count).is_none());
+        let mut at = HEADER_BYTES + count * ENTRY_BYTES;
+        while at < PAGE {
+            assert_eq!(page[at], 0, "a byte past the last entry is not zero");
+            at += 1;
+        }
     }
 
     /// Falsification: replayable `falsifications/verification.write_is_total_on_any_page_length.patch`
