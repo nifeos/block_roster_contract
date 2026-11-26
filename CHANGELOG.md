@@ -3,6 +3,13 @@
 Dates are UTC. One line per release, what changed and why, so a reader of the diff has the
 sentence beside it.
 
+## Unreleased
+
+- The writer now clears bytes past the last entry, so a reused buffer holds no stale entries:
+  `write` sets every byte from the end of its last entry to the end of the page to zero. The proof
+  that a written roster reads back as written starts from a page of any bytes and checks the
+  cleared tail.
+
 ## 0.1.0-pre.3
 
 - `capacity_of(len)` is `entry_capacity(page_bytes)`, so the parameter carries its unit. The
